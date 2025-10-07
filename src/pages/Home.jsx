@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router-dom";
 import copy from "../assets/copy.png";
 import encrypted from "../assets/encrypted.png";
 import mobile from "../assets/mobile.png";
@@ -5,6 +6,8 @@ import shareIcon from "../assets/share.png";
 import clipboard from "../assets/content_paste.png";
 
 export default function Home() {
+  const navigate = useNavigate();
+
   const features = [
     {
       img: copy,
@@ -44,6 +47,12 @@ export default function Home() {
     },
   ];
 
+  // ✅ Generates unique session ID and navigates to clipboard page
+  const handleCreateSession = () => {
+    const sessionId = Math.random().toString(36).substring(2, 10); // simple random 8-char ID
+    navigate(`/clipboard/${sessionId}`);
+  };
+
   return (
     <main className="min-h-screen bg-gradient-to-b from-[#06123e] to-[#040c29] text-white">
       {/* HERO */}
@@ -68,7 +77,6 @@ export default function Home() {
           Your Clipboard,
         </h1>
 
-        {/* IMPORTANT: avoid fixed heights; use overflow-visible + small padding so descenders don't get cut */}
         <h2 className="text-5xl md:text-6xl lg:text-8xl font-extrabold bg-gradient-to-r from-indigo-500 to-teal-400 bg-clip-text text-transparent overflow-visible pb-1 leading-[1.02] mb-5">
           Everywhere
         </h2>
@@ -79,7 +87,9 @@ export default function Home() {
         <p className="text-sm md:text-lg text-white/60 mb-6">Just scan, paste, and go.</p>
 
         <div className="flex gap-4 items-center justify-center">
+          {/* ✅ Create session navigates to /clipboard/:id */}
           <button
+            onClick={handleCreateSession}
             type="button"
             className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 transition rounded-full px-5 py-2.5 text-sm md:text-base font-semibold focus:outline-none focus-visible:ring-4 focus-visible:ring-indigo-400"
             aria-label="Create session"
@@ -105,13 +115,17 @@ export default function Home() {
           </button>
         </div>
 
-        <p className="mt-6 text-sm text-white/50">Sessions expire in 15 minutes. No account needed.</p>
+        <p className="mt-6 text-sm text-white/50">
+          Sessions expire in 15 minutes. No account needed.
+        </p>
       </section>
 
       {/* FEATURES */}
       <section id="features" className="px-6 pb-16">
         <div className="max-w-6xl mx-auto">
-          <h3 className="text-3xl md:text-4xl lg:text-5xl font-bold text-center mb-3">Simple. Fast. Secure</h3>
+          <h3 className="text-3xl md:text-4xl lg:text-5xl font-bold text-center mb-3">
+            Simple. Fast. Secure
+          </h3>
           <p className="text-center text-white/60 max-w-2xl mx-auto mb-8">
             Everything you need to share content across devices, nothing you don't.
           </p>
@@ -129,7 +143,10 @@ export default function Home() {
                   loading="lazy"
                   className="h-14 w-14 object-contain mb-4"
                 />
-                <h4 id={`feature-${i}-title`} className="text-lg font-semibold mb-2">
+                <h4
+                  id={`feature-${i}-title`}
+                  className="text-lg font-semibold mb-2"
+                >
                   {title}
                 </h4>
                 <p className="text-sm text-white/70">{desc}</p>
@@ -139,8 +156,11 @@ export default function Home() {
         </div>
       </section>
 
-      {/* HOW IT WORKS (stacked cards like your screenshot) */}
-      <section id="how-it-works" className="bg-gradient-to-b from-[#071024] via-[#061325] to-[#08162b] py-16 px-6">
+      {/* HOW IT WORKS */}
+      <section
+        id="how-it-works"
+        className="bg-gradient-to-b from-[#071024] via-[#061325] to-[#08162b] py-16 px-6"
+      >
         <div className="max-w-4xl mx-auto text-center">
           <h3 className="text-4xl md:text-5xl font-extrabold leading-snug overflow-visible pb-1">
             How It Works
@@ -151,14 +171,13 @@ export default function Home() {
         </div>
 
         <div className="max-w-4xl mx-auto mt-10 space-y-6">
-          {steps.map((s, idx) => (
+          {steps.map((s) => (
             <article
               key={s.id}
               tabIndex={0}
               className="flex items-center gap-6 bg-white/5 hover:bg-white/7 transition rounded-[18px] p-6 md:p-8 shadow-inner"
               aria-labelledby={`step-${s.id}-title`}
             >
-              {/* Number badge */}
               <div className="flex-none">
                 <div className="h-14 w-14 rounded-lg flex items-center justify-center bg-gradient-to-br from-indigo-400 to-teal-300 text-white font-semibold text-sm">
                   {s.id}
@@ -180,26 +199,41 @@ export default function Home() {
       <section className="py-20 px-6">
         <div className="max-w-3xl mx-auto text-center">
           <div className="mx-auto mb-6 w-14 h-14 flex items-center justify-center rounded-full">
-            {/* optional small icon */}
             <img src={shareIcon} alt="Share icon" />
           </div>
 
-          <h3 className="text-3xl md:text-4xl lg:text-5xl font-extrabold leading-tight mb-3">Ready to sync your clipboard?</h3>
-          <p className="text-white/60 mb-8">Create your first session and start sharing across devices instantly.</p>
+          <h3 className="text-3xl md:text-4xl lg:text-5xl font-extrabold leading-tight mb-3">
+            Ready to sync your clipboard?
+          </h3>
+          <p className="text-white/60 mb-8">
+            Create your first session and start sharing across devices instantly.
+          </p>
 
           <button
+            onClick={handleCreateSession}
             type="button"
             className="inline-flex items-center gap-3 bg-gradient-to-r from-indigo-500 to-indigo-400 px-8 py-3 rounded-full text-white font-semibold shadow-lg hover:scale-[1.01] transition transform focus-visible:ring-4 focus-visible:ring-indigo-400"
           >
             Get Started Now
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M5 12h14M12 5l7 7-7 7" />
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-5 w-5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M5 12h14M12 5l7 7-7 7"
+              />
             </svg>
           </button>
         </div>
       </section>
 
-      {/* Footer small bar */}
+      {/* FOOTER */}
       <footer className="border-t border-white/6 py-6">
         <div className="max-w-6xl mx-auto px-6 text-center text-white/60 text-sm flex items-center justify-center gap-3">
           <img src={clipboard} alt="Clipboard" />
