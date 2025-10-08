@@ -1,10 +1,9 @@
-// src/pages/Clipboard.jsx
-import React, { useEffect, useRef, useState, useCallback } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Header from "../components/Header";
 import QRCodeCard from "../components/QRCodeCard";
 
-const MAX_BYTES = 25 * 1024 * 1024; // 25 MB
+const MAX_BYTES = 25 * 1024 * 1024;
 
 export default function Clipboard() {
   const { sessionId } = useParams();
@@ -12,47 +11,38 @@ export default function Clipboard() {
 
   const [items, setItems] = useState([]);
   const [newText, setNewText] = useState("");
+  const [activeTab, setActiveTab] = useState("text");
   const [modal, setModal] = useState({ open: false, msg: "" });
   const [feedback, setFeedback] = useState("");
-  const fileInputRef = useRef(null);
   const dropRef = useRef(null);
+  const fileInputRef = useRef(null);
 
-  // initial welcome item (like your screenshot)
+  // sample welcome
   useEffect(() => {
     setItems([
       {
-        id: `welcome_${Date.now()}`,
+        id: `t_${Date.now()}`,
         type: "text",
-        content: "Welcome to your Universal Clipboard session! Share the QR code to sync across devices.",
+        content:
+          "Welcome to your Universal Clipboard session! Share the QR to sync across devices.",
         createdAt: Date.now(),
       },
     ]);
   }, []);
 
-  // cleanup object URLs on unmount
-  useEffect(() => {
-    return () => {
-      items.forEach((it) => {
-        if (it.url && it._objectUrl) URL.revokeObjectURL(it.url);
-      });
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // --- session end handler (from Header) ---
-  const handleEnd = useCallback(() => {
+  // --- session end handler ---
+  const handleEnd = () => {
     try {
       sessionStorage.removeItem(`uc_start_${sessionId}`);
     } catch (e) {}
-    // TODO: add server cleanup if needed
     navigate("/", { replace: true });
-  }, [navigate, sessionId]);
+  };
 
-  // --- Add text to clipboard ---
+  // --- add text ---
   const handleAddText = () => {
-    if (!newText || !newText.trim()) {
-      setFeedback("Enter some text first");
-      setTimeout(() => setFeedback(""), 1800);
+    if (!newText.trim()) {
+      setFeedback("Type something first");
+      setTimeout(() => setFeedback(""), 1400);
       return;
     }
     const t = {
@@ -64,14 +54,19 @@ export default function Clipboard() {
     setItems((s) => [t, ...s]);
     setNewText("");
     setFeedback("Added text");
-    setTimeout(() => setFeedback(""), 1500);
+    setTimeout(() => setFeedback(""), 1200);
+    setActiveTab("text");
   };
 
-  // --- File handling ---
-  const handleFiles = (files) => {
-    Array.from(files).forEach((file) => {
+  // --- file handling ---
+  const handleFiles = (fileList) => {
+    const files = Array.from(fileList || []);
+    files.forEach((file) => {
       if (file.size > MAX_BYTES) {
-        setModal({ open: true, msg: `"${file.name}" is too large. Max file size is 25 MB.` });
+        setModal({
+          open: true,
+          msg: `"${file.name}" is too large. Maximum allowed is 25 MB.`,
+        });
         return;
       }
       const isImage = file.type.startsWith("image/");
@@ -82,12 +77,13 @@ export default function Clipboard() {
         name: file.name,
         size: file.size,
         url,
-        _objectUrl: true, // mark to revoke later
+        _objectUrl: true,
         createdAt: Date.now(),
       };
       setItems((s) => [newItem, ...s]);
+      setActiveTab(isImage ? "image" : "file");
       setFeedback("File added");
-      setTimeout(() => setFeedback(""), 1500);
+      setTimeout(() => setFeedback(""), 1200);
     });
   };
 
@@ -127,15 +123,24 @@ export default function Clipboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dropRef.current]);
 
-  // copy text
+  // cleanup object URLs on unmount
+  useEffect(() => {
+    return () => {
+      items.forEach((it) => {
+        if (it._objectUrl && it.url) URL.revokeObjectURL(it.url);
+      });
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handleCopy = async (text) => {
     try {
       await navigator.clipboard.writeText(text);
       setFeedback("Copied");
-      setTimeout(() => setFeedback(""), 1200);
+      setTimeout(() => setFeedback(""), 1000);
     } catch {
       setFeedback("Copy failed");
-      setTimeout(() => setFeedback(""), 1200);
+      setTimeout(() => setFeedback(""), 1000);
     }
   };
 
@@ -150,50 +155,40 @@ export default function Clipboard() {
     } catch (err) {
       console.error(err);
       setFeedback("Download failed");
-      setTimeout(() => setFeedback(""), 1400);
+      setTimeout(() => setFeedback(""), 1000);
     }
   };
 
-  // group items
+  // filters + counts
   const texts = items.filter((i) => i.type === "text");
   const images = items.filter((i) => i.type === "image");
   const files = items.filter((i) => i.type === "file");
 
   return (
-    <div className="min-h-screen bg-[#0f1720] text-white">
+    <div className="min-h-screen bg-[#0b1220] text-white flex flex-col">
       <Header sessionId={sessionId} onEnd={handleEnd} />
 
-      <main className="p-6 max-w-7xl mx-auto">
+      <main className="p-6 max-w-7xl mx-auto w-full">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* LEFT: QR card */}
-          <div className="space-y-4 md:col-span-1">
-            <QRCodeCard sessionId={sessionId} />
-
-            {/* small session meta card (optional) */}
-            <div className="bg-[#0b1220] rounded-2xl p-4 text-sm text-white/70">
-              <div className="font-medium mb-1">Session Info</div>
-              <div className="bg-[#06101a] px-3 py-2 rounded text-sm font-mono break-all">{sessionId}</div>
-              <div className="mt-3 text-xs text-white/50">Sessions expire in 15 minutes automatically.</div>
-            </div>
-          </div>
-
-          {/* RIGHT: Main clipboard UI */}
-          <div className="md:col-span-2 space-y-6">
-            {/* Add Text card */}
-            <div className="bg-[#0b1824] rounded-2xl p-5 shadow-inner">
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex-1">
+          {/* LEFT: QR + session */}
+          <QRCodeCard sessionId={sessionId} />
+          {/* RIGHT: main */}
+          <section className="md:col-span-2 space-y-6">
+            {/* Add Text */}
+            <div className="bg-[#0f172a] p-5 rounded-2xl shadow-md">
+              <div className="flex flex-col gap-4 items-end">
+                <div className="w-full">
                   <div className="font-semibold mb-2">Add Text</div>
                   <textarea
                     value={newText}
                     onChange={(e) => setNewText(e.target.value)}
                     placeholder="Type or paste your text here..."
                     rows={4}
-                    className="w-full resize-none rounded-xl bg-[#071123] placeholder-white/30 border border-white/5 p-4 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-600"
+                    className="w-full bg-[#071723] text-white/90 rounded-xl p-4 resize-none border border-white/5 focus:outline-none focus:ring-2 focus:ring-indigo-600"
                   />
                 </div>
 
-                <div className="flex-shrink-0 self-end">
+                <div>
                   <button
                     onClick={handleAddText}
                     className="bg-gradient-to-r from-indigo-500 to-indigo-400 px-5 py-2 rounded-full text-white font-semibold shadow-lg hover:opacity-95 transition"
@@ -202,120 +197,161 @@ export default function Clipboard() {
                   </button>
                 </div>
               </div>
+
+              <div className="mt-3 text-sm text-white/60">{feedback}</div>
             </div>
 
-            {/* File Upload + drag-drop */}
+            {/* File upload */}
             <div
               ref={dropRef}
-              className="bg-transparent rounded-2xl border-2 border-dashed border-white/6 p-6 flex items-center justify-center flex-col text-center text-white/60 min-h-[160px]"
+              className="bg-[#0f172a] p-6 rounded-2xl border border-dashed border-white/10 flex flex-col items-center justify-center text-center"
             >
-              <div className="mb-1">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-9 w-9 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" d="M12 3v12" />
-                  <path strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" d="M21 15v4a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-4" />
-                  <path strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" d="M7 10l5-5 5 5" />
-                </svg>
-              </div>
-              <div className="text-sm mb-2">Drag & drop a file here, or click to browse</div>
-              <div className="text-xs mb-3">Max file size: 25MB</div>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-10 w-10 text-white/40 mb-2"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M12 16V4m0 12l3-3m-3 3l-3-3M6 20h12"
+                />
+              </svg>
+              <p className="text-white/70 mb-1">
+                Drag & drop a file here, or click to browse
+              </p>
+              <p className="text-xs text-white/50 mb-3">Max file size: 25MB</p>
 
               <div className="flex gap-3">
-                <label
-                  htmlFor="fileUpload"
-                  className="px-4 py-2 rounded-full bg-white/6 hover:bg-white/8 cursor-pointer text-sm"
-                >
-                  Choose File
+                <label className="cursor-pointer bg-white/5 hover:bg-white/10 px-4 py-2 rounded-md text-sm inline-flex items-center gap-2">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    onChange={onFileInput}
+                    className="hidden"
+                  />
+                  Choose file
                 </label>
-
-                <input
-                  id="fileUpload"
-                  ref={fileInputRef}
-                  type="file"
-                  className="hidden"
-                  onChange={onFileInput}
-                />
               </div>
             </div>
 
-            {/* Clipboard Items header */}
-            <div className="flex items-center gap-3">
-              <div className="text-xl font-semibold">Clipboard Items</div>
-              <div className="text-sm text-white/50">({items.length})</div>
-              <div className="ml-auto text-sm text-white/60">{feedback}</div>
-            </div>
+            {/* Clipboard Items: tabs + lists */}
+            <div className="bg-[#0f172a] p-5 rounded-2xl shadow-md">
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <h4 className="font-semibold text-white flex items-center gap-2">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="w-5 h-5"
+                    viewBox="0 -960 960 960"
+                    fill="#F3F3F3"
+                  >
+                    <path d="M200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h167q11-35 43-57.5t70-22.5q40 0 71.5 22.5T594-840h166q33 0 56.5 23.5T840-760v560q0 33-23.5 56.5T760-120H200Zm0-80h560v-560h-80v120H280v-120h-80v560Zm280-560q17 0 28.5-11.5T520-800q0-17-11.5-28.5T480-840q-17 0-28.5 11.5T440-800q0 17 11.5 28.5T480-760Z" />
+                  </svg>
+                  Clipboard Items
+                  <span className="text-sm text-white/60 ml-1">
+                    ({items.length})
+                  </span>
+                </h4>
 
-            {/* Items list grouped by type */}
-            <div className="space-y-4">
-              {/* TEXTS */}
-              {texts.length > 0 && (
-                <section className="space-y-2">
-                  <h4 className="text-sm text-white/70 font-medium">Texts</h4>
+                {/* tabs */}
+                <div className="flex gap-2 overflow-x-auto py-1">
+                  <Tab
+                    label={`Texts (${texts.length})`}
+                    active={activeTab === "text"}
+                    onClick={() => setActiveTab("text")}
+                  />
+                  <Tab
+                    label={`Photos (${images.length})`}
+                    active={activeTab === "image"}
+                    onClick={() => setActiveTab("image")}
+                  />
+                  <Tab
+                    label={`Files (${files.length})`}
+                    active={activeTab === "file"}
+                    onClick={() => setActiveTab("file")}
+                  />
+                </div>
+              </div>
+
+              <div className="mt-4">
+                {activeTab === "text" && (
                   <div className="space-y-3">
-                    {texts.map((t) => (
-                      <TextCard key={t.id} item={t} onCopy={() => handleCopy(t.content)} />
-                    ))}
-                  </div>
-                </section>
-              )}
-
-              {/* IMAGES */}
-              {images.length > 0 && (
-                <section className="space-y-2">
-                  <h4 className="text-sm text-white/70 font-medium">Photos</h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {images.map((it) => (
-                      <div key={it.id} className="bg-white/4 rounded-xl overflow-hidden flex flex-col">
-                        <img src={it.url} alt={it.name} className="w-full h-48 object-cover" />
-                        <div className="p-3 flex items-center justify-between">
-                          <div className="text-sm truncate">{it.name}</div>
-                          <div className="flex items-center gap-2">
-                            <button onClick={() => handleDownload(it)} className="px-3 py-1 rounded bg-indigo-600 text-sm">Download</button>
-                          </div>
-                        </div>
+                    {texts.length === 0 ? (
+                      <div className="text-white/50 py-6 text-center">
+                        No text items yet.
                       </div>
-                    ))}
+                    ) : (
+                      texts.map((t) => (
+                        <TextRow
+                          key={t.id}
+                          item={t}
+                          onCopy={() => handleCopy(t.content)}
+                        />
+                      ))
+                    )}
                   </div>
-                </section>
-              )}
+                )}
 
-              {/* FILES */}
-              {files.length > 0 && (
-                <section className="space-y-2">
-                  <h4 className="text-sm text-white/70 font-medium">Files</h4>
-                  <div className="space-y-2">
-                    {files.map((it) => (
-                      <div key={it.id} className="bg-white/4 rounded-xl p-3 flex items-center justify-between">
-                        <div>
-                          <div className="font-medium">{it.name}</div>
-                          <div className="text-xs text-white/60">{formatBytes(it.size)}</div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <button onClick={() => handleDownload(it)} className="px-3 py-1 rounded bg-indigo-600 text-sm">Download</button>
-                        </div>
+                {activeTab === "image" && (
+                  <div className="space-y-3">
+                    {images.length === 0 ? (
+                      <div className="text-white/50 py-6 text-center">
+                        No photos yet.
                       </div>
-                    ))}
+                    ) : (
+                      images.map((it) => (
+                        <ImageRow
+                          key={it.id}
+                          item={it}
+                          onDownload={() => handleDownload(it)}
+                        />
+                      ))
+                    )}
                   </div>
-                </section>
-              )}
+                )}
 
-              {/* empty state */}
-              {items.length === 0 && (
-                <div className="text-white/60">No clipboard items yet — add text or files above.</div>
-              )}
+                {activeTab === "file" && (
+                  <div className="space-y-3">
+                    {files.length === 0 ? (
+                      <div className="text-white/50 py-6 text-center">
+                        No files yet.
+                      </div>
+                    ) : (
+                      files.map((it) => (
+                        <FileRow
+                          key={it.id}
+                          item={it}
+                          onDownload={() => handleDownload(it)}
+                        />
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+          </section>
         </div>
       </main>
 
-      {/* File too large modal */}
+      {/* modal for file-too-large */}
       {modal.open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/60" onClick={() => setModal({ open: false, msg: "" })} />
+          <div
+            className="absolute inset-0 bg-black/60"
+            onClick={() => setModal({ open: false, msg: "" })}
+          />
           <div className="relative bg-slate-900 rounded-lg p-6 w-full max-w-md">
             <h3 className="text-lg font-semibold mb-2">File too large</h3>
             <p className="text-sm text-white/70 mb-4">{modal.msg}</p>
             <div className="flex justify-end">
-              <button onClick={() => setModal({ open: false, msg: "" })} className="px-4 py-2 rounded bg-indigo-600">OK</button>
+              <button
+                onClick={() => setModal({ open: false, msg: "" })}
+                className="px-4 py-2 rounded bg-indigo-600"
+              >
+                OK
+              </button>
             </div>
           </div>
         </div>
@@ -324,22 +360,33 @@ export default function Clipboard() {
   );
 }
 
-/* --------------------
-   Small helper parts
-   -------------------- */
+/* -------------------------
+   Small helper components
+   ------------------------- */
 
-function TextCard({ item, onCopy }) {
+function Tab({ label, active, onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`px-3 py-1.5 rounded-md text-sm font-medium transition whitespace-nowrap ${
+        active ? "bg-indigo-600 text-white" : "text-white/70 hover:bg-white/5"
+      }`}
+    >
+      {label}
+    </button>
+  );
+}
+
+/* Text row with show more / less */
+function TextRow({ item, onCopy }) {
   const [expanded, setExpanded] = useState(false);
   const [collapsible, setCollapsible] = useState(false);
   const ref = useRef(null);
 
-  // detect if longer than ~3 lines (accurate to layout width)
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-
     const compute = () => {
-      // create hidden clone to measure full height
       const clone = document.createElement("div");
       const style = getComputedStyle(el);
       clone.style.position = "absolute";
@@ -348,7 +395,6 @@ function TextCard({ item, onCopy }) {
       clone.style.fontSize = style.fontSize;
       clone.style.lineHeight = style.lineHeight;
       clone.style.fontFamily = style.fontFamily;
-      clone.style.fontWeight = style.fontWeight;
       clone.style.whiteSpace = "pre-wrap";
       clone.innerText = item.content;
       document.body.appendChild(clone);
@@ -357,18 +403,16 @@ function TextCard({ item, onCopy }) {
       document.body.removeChild(clone);
       setCollapsible(fullHeight > lineHeight * 3 + 1);
     };
-
     compute();
-    // re-compute on resize
     window.addEventListener("resize", compute);
     return () => window.removeEventListener("resize", compute);
   }, [item.content]);
 
   return (
-    <div className="bg-white/4 rounded-xl p-4">
+    <div className="bg-[#071723] rounded-lg p-4 flex flex-col">
       <div
         ref={ref}
-        className="text-sm text-white/80"
+        className="text-sm text-white/90 break-words"
         style={
           !expanded
             ? {
@@ -385,24 +429,89 @@ function TextCard({ item, onCopy }) {
 
       <div className="mt-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <button onClick={onCopy} className="px-3 py-1 rounded bg-indigo-600 text-sm">Copy</button>
+          <button
+            onClick={onCopy}
+            className="px-3 py-1 rounded bg-indigo-600 text-sm"
+          >
+            Copy
+          </button>
           {collapsible && (
-            <button onClick={() => setExpanded((s) => !s)} className="text-sm text-white/70">
+            <button
+              onClick={() => setExpanded((s) => !s)}
+              className="text-sm text-white/70"
+            >
               {expanded ? "Show less" : "Show more"}
             </button>
           )}
         </div>
-        <div className="text-xs text-white/50 font-mono">{new Date(item.createdAt || Date.now()).toLocaleTimeString()}</div>
+        <div className="text-xs text-white/50 font-mono">
+          {new Date(item.createdAt || Date.now()).toLocaleTimeString()}
+        </div>
       </div>
     </div>
   );
 }
 
-/* pretty bytes */
+/* Image row (vertical list with thumbnail on the left on wider screens) */
+function ImageRow({ item, onDownload }) {
+  return (
+    <div className="bg-[#071723] rounded-lg p-3 flex items-center gap-3">
+      <img
+        src={item.url}
+        alt={item.name}
+        className="h-16 w-20 object-cover rounded-md flex-shrink-0"
+      />
+      <div className="flex-1 min-w-0">
+        <div className="font-medium text-sm truncate">
+          {item.name || "Image"}
+        </div>
+        <div className="text-xs text-white/60">
+          {new Date(item.createdAt || Date.now()).toLocaleTimeString()}
+        </div>
+      </div>
+      <div className="flex-shrink-0">
+        <button
+          onClick={onDownload}
+          className="px-3 py-1 rounded bg-indigo-600 text-sm"
+        >
+          Download
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* File row */
+function FileRow({ item, onDownload }) {
+  return (
+    <div className="bg-[#071723] rounded-lg p-3 flex items-center justify-between">
+      <div className="flex items-center gap-3 min-w-0">
+        <div className="h-10 w-10 rounded-md bg-white/5 flex items-center justify-center flex-shrink-0">
+          📎
+        </div>
+        <div className="min-w-0">
+          <div className="font-medium text-sm truncate">{item.name}</div>
+          <div className="text-xs text-white/60">{formatBytes(item.size)}</div>
+        </div>
+      </div>
+      <div>
+        <button
+          onClick={onDownload}
+          className="px-3 py-1 rounded bg-indigo-600 text-sm"
+        >
+          Download
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* util */
 function formatBytes(bytes) {
-  if (!bytes) return "0 B";
+  if (!bytes && bytes !== 0) return "";
   const k = 1024;
   const sizes = ["B", "KB", "MB", "GB"];
+  if (bytes === 0) return "0 B";
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
 }

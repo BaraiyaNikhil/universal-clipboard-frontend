@@ -49,7 +49,7 @@ export default function Home() {
 
   // ✅ Generates unique session ID and navigates to clipboard page
   const handleCreateSession = () => {
-    const sessionId = Math.random().toString(36).substring(2, 10); // simple random 8-char ID
+    const sessionId = Math.random().toString(36).substring(2, 10);
     navigate(`/clipboard/${sessionId}`);
   };
 
