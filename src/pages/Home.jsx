@@ -106,6 +106,7 @@ export default function Home() {
             </svg>
           </button>
 
+          <a href="#how-it-works">
           <button
             type="button"
             className="rounded-full px-5 py-2.5 text-sm md:text-base bg-white/10 hover:bg-white/20 transition font-semibold focus:outline-none focus-visible:ring-4 focus-visible:ring-white/20"
@@ -113,6 +114,7 @@ export default function Home() {
           >
             Learn More
           </button>
+          </a>
         </div>
 
         <p className="mt-6 text-sm text-white/50">
